@@ -16,3 +16,10 @@ export enum TaskStatus {
     PROGRESS,
     DONE
 }
+
+export type FormState = {
+    title:string;
+    description: string;
+    isOpen: boolean;
+    toggler(): void;
+}
