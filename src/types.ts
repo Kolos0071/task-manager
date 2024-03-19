@@ -21,5 +21,7 @@ export type FormState = {
     title:string;
     description: string;
     isOpen: boolean;
-    toggler(): void;
+    isEdit: boolean;
+    toggler(isEdit?: boolean, task?: Task): void;
+    tempId?:number | null;
 }

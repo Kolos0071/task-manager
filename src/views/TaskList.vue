@@ -3,12 +3,12 @@ import { reactive, computed,ref, type ComputedRef, type Ref } from 'vue';
 import   {type TaskListModelItem,  TaskStatus, type Task, type FormState} from "@/types.ts";
 import TaskCard from "@/components/TaskCard.vue";
 import Form from '@/components/Form.vue';
-const taskList: Ref<Task[]> = ref([{
-        id:66,
-        title: "NEW CARD",
-        status: TaskStatus.NEW,
-        description: "Lorem"
-      }]);
+import { useTaskListStore } from '@/stores/taskList'
+
+const store = useTaskListStore()
+
+
+const taskList: Task[] = store.taskList 
 
 const taskListModel:ComputedRef<TaskListModelItem[]> = computed(()=>{
   const taskListModel =  [
@@ -29,7 +29,7 @@ const taskListModel:ComputedRef<TaskListModelItem[]> = computed(()=>{
     },
   ];
 
-  taskList.value.forEach(item => {
+  taskList.forEach(item => {
     taskListModel.forEach(category => {
       if(item.status === category.status) {
         category.taskList.push(item);
@@ -41,34 +41,43 @@ const taskListModel:ComputedRef<TaskListModelItem[]> = computed(()=>{
 return taskListModel;
 })
 
-function changeStatus(card: Task) {
- if(card.status === TaskStatus.NEW) {
-  card.status = TaskStatus.PROGRESS;
- } else if(card.status === TaskStatus.PROGRESS) {
-  card.status = TaskStatus.DONE;
- }
-}
+
 
 const formState: Ref<FormState> = ref({
   title: "",
   description: "",
   isOpen: false as boolean,
-  toggler() {
+  isEdit: false as boolean,
+  tempId: null as any,
+  toggler(isEdit: boolean = false, task: Task) {
+    if(isEdit) {
+      this.isEdit = isEdit;
+      this.title = task.title;
+      this.description = task.description;
+      this.tempId = task.id
+    } else {
+      this.title = "";
+      this.description = "";
+      this.isEdit = false;
+    }
     this.isOpen = !this.isOpen;
   }
 })
 
 function addTask() {
-  const task: Task = {
-    title: formState.value.title,
-    description: formState.value.description,
-    status: TaskStatus.NEW,
-    id: taskList.value.length,
-  }
-  taskList.value.push(task);
+  store.addTask(formState.value)
   formState.value.title = "";
   formState.value.description = "";
+}
 
+function editTask() {
+  store.editTask(formState.value)
+  formState.value.toggler();
+}
+
+function deleteTask(id: number) {
+  const answer:boolean = confirm("Хотите удалить задачу?")
+  if(answer)store.deleteTask(id)
 }
 
 </script>
@@ -77,22 +86,24 @@ function addTask() {
   <div class="task-page">
     <Form @close="formState.toggler()" :is-open="formState.isOpen" class="task-page__form">
       <div class="task-page__form-wrapper">
-        <h1>Add Task</h1>
+        <h1 v-if="formState.isEdit">Редактировать</h1>
+        <h1 v-else>Добавить</h1>
         <input type="text" v-model="formState.title">
-        <input type="text" v-model="formState.description">
-        <button @click="addTask">ADD</button>
-        <button @click="formState.toggler">Cancel</button>
+        <textarea type="text" v-model="formState.description"></textarea>
+        <button v-if="formState.isEdit" @click="editTask">Подтвердить</button>
+        <button v-else @click="addTask">Добавить</button>
+        <button @click="formState.toggler()">Отмена</button>
       </div>
     </Form>
     <div class="task-page__add-button-wrapper">
-      <button class="task-page__add-button" @click="formState.toggler">+</button>
+      <button class="task-page__add-button" @click="formState.toggler()">Добавить</button>
     </div>
     <div class="task-page__category-wrapper">
       <div v-for="category in taskListModel" :key="category.name" class="task-page__list-wrapper category">
         <h2 class="category__title">{{ category.name }}</h2>
         <ul  class="category__list">
-          <li v-for="(card) in category.taskList" class="category__list-item">
-            <TaskCard v-bind="card" :no-next-button="card.status === TaskStatus.DONE" @next="changeStatus(card)"></TaskCard>
+          <li v-for="(card) in category.taskList" class="category__list-item" :key="card.id">
+            <TaskCard v-bind="card" :no-next-button="card.status === TaskStatus.DONE" @next="store.changeStatus(card)" @delete="deleteTask(card.id)" @edit="formState.toggler(true, card)"></TaskCard>
           </li>
         </ul>
       </div>
@@ -123,5 +134,9 @@ function addTask() {
   }
   .category__list {
     padding: 12px;
+  }
+
+  .category__list-item:not(:last-child) {
+    margin-bottom: 12px;
   }
 </style>
